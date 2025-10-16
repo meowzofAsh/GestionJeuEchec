@@ -34,24 +34,41 @@ class TournoiController:
                 print("Choix invalide.")
 
     def creer_tournoi(self):
-        """Simule la création d'un tournoi (nécessite 8 joueurs)."""
+        """Créer un nouveau tournoi en utilisant la saisie utilisateur."""
+        # 1. Obtient les données du tournoi via la vue
+        donnees_tournoi = self.tournoi_view.saisir_nouveau_tournoi()
+        if donnees_tournoi is None:
+            # Saisie annulée
+            return
+
+        # 2. Vérifie qu'il y a assez de joueurs (8 requis pour le moment)
         if len(self.stockage.joueurs_en_memoire) < 8:
             print("Erreur : Il faut au moins 8 joueurs enregistrés pour créer un tournoi.")
             return
 
+        # 3. Sélectionne les 8 premiers joueurs (méthode temporaire)
         joueurs_ids = [j.joueur_id for j in self.stockage.joueurs_en_memoire[:8]]
 
+        # 4. Crée l'instance TournoiModel avec les données saisies
         nouveau_tournoi = TournoiModel(
-            nom="Open du Week-end",
-            lieu="Cocody",
-            date_debut="2025-10-15",
-            date_fin="2025-10-15",
-            controle_temps="Blitz",
-            description="Tournoi test",
+            nom=donnees_tournoi["nom"],
+            lieu=donnees_tournoi["lieu"],
+            date_debut=donnees_tournoi["date_debut"],
+            date_fin=donnees_tournoi["date_fin"],
+            controle_temps=donnees_tournoi["controle_temps"],
+            description=donnees_tournoi["description"],
+            nombre_tours=donnees_tournoi["nombre_tours"],  # Ajout pour initialiser
             joueurs_ids=joueurs_ids,
         )
+
+        # 5. Attribue un ID (si vous avez implémenté attribuer_id_tournoi dans StockageService)
+        # S'il manque, assurez-vous de l'ajouter pour la gestion des IDs
+        if hasattr(self.stockage, 'attribuer_id_tournoi'):
+            self.stockage.attribuer_id_tournoi(nouveau_tournoi)
+
+        # 6. Ajoute le tournoi en mémoire
         self.stockage.tournois_en_memoire.append(nouveau_tournoi)
-        print(f"Tournoi '{nouveau_tournoi.nom}' créé avec 8 joueurs.")
+        print(f"Tournoi '{nouveau_tournoi.nom}' créé avec {len(joueurs_ids)} joueurs.")
 
     def visualiser_tournoi_detail(self):
         """Affiche les détails d'un tournoi et gère les actions du tour en cours."""
@@ -98,10 +115,15 @@ class TournoiController:
             return
 
         nom_tour = f"Round {tour_actuel_num}"
-        matchs = self.appariement_controller.generer_appariements(
-            tournoi.joueurs_ids,
-            tour_actuel_num,
-        )
+
+        try:
+            matchs = self.appariement_controller.generer_appariements(
+                tournoi.joueurs_ids,
+                tour_actuel_num,
+            )
+        except ValueError as e:
+            print(f"Erreur d'appariement : {e}")
+            return
 
         nouveau_tour = TourModel(
             nom=nom_tour,

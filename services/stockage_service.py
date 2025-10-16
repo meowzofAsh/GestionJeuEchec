@@ -1,4 +1,6 @@
 from tinydb import TinyDB
+from tinydb.storages import JSONStorage
+from tinydb.middlewares import CachingMiddleware
 from typing import List
 from models.joueur_model import JoueurModel
 from models.tournois_model import TournoiModel
@@ -9,7 +11,8 @@ class StockageService:
 
     def __init__(self, db_path='db.json'):
         self.db_path = db_path
-        self.db = TinyDB(db_path)
+        # Utilisation de CachingMiddleware pour optimiser les écritures
+        self.db = TinyDB(db_path, storage=CachingMiddleware(JSONStorage))
         self.joueurs_table = self.db.table('joueurs')
         self.tournois_table = self.db.table('tournois')
 
@@ -57,8 +60,8 @@ class StockageService:
 
     # --- Sauvegarde et Sérialisation ---
 
-    def _attribuer_ids(self):
-        """Attribue les IDs aux joueurs et tournois si nécessaire (au moment de la sauvegarde)."""
+    def _attribuer_ids_avant_sauvegarde(self):
+        """Attribue les IDs manquants aux joueurs et tournois avant la sauvegarde finale."""
         for joueur in self.joueurs_en_memoire:
             if joueur.joueur_id is None:
                 self.max_joueur_id += 1
@@ -85,12 +88,12 @@ class StockageService:
 
     def sauvegarder_donnees(self):
         """Sauvegarde l'état complet du programme."""
-        self._attribuer_ids()
+        self._attribuer_ids_avant_sauvegarde()  # Renommage pour plus de clarté
         self.sauvegarder_joueurs()
         self.sauvegarder_tournois()
-        self.db.close()
+        self.db.close()  # S'assurer que la base de données est fermée et écrite
 
-    # --- Utilitaires d'attribution d'ID ---
+    # --- Utilitaires d'attribution d'ID (pour usage immédiat) ---
 
     def attribuer_id_joueur(self, joueur: JoueurModel):
         """Attribue le prochain ID séquentiel disponible à un joueur."""

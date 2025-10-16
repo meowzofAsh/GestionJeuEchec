@@ -1,78 +1,67 @@
 from typing import List
 from models.match_model import MatchModel
+from services.stockage_service import StockageService
 
 
 class AppariementController:
-    """Implémente la logique d'appariement du système suisse."""
+    """Gère la logique d'appariement des joueurs selon le système suisse."""
 
-    def __init__(self, stockage_service):
+    def __init__(self, stockage_service: StockageService):
         self.stockage = stockage_service
 
-    def generer_appariements(self, joueurs_ids: List[int], tour_actuel: int) -> List[MatchModel]:
+    def generer_appariements(self, joueurs_ids: List[int], tour_actuel_num: int) -> List[MatchModel]:
         """
-        Génère la liste des matchs pour le tour spécifié selon le système suisse.
-        :param joueurs_ids: Liste des IDs des joueurs dans le tournoi.
-        :param tour_actuel: Le numéro du tour (1 pour Round 1, 2 pour Round 2, etc.).
-        :return: Liste des instances MatchModel.
+        Génère les paires de matchs pour le tour actuel.
+
+        Pour le Tour 1 : appariement selon le classement (top moitié vs bottom moitié).
+        Pour les tours suivants : appariement selon les points puis le classement.
         """
-        # 1. Récupérer les instances complètes des joueurs
-        joueurs = [self.stockage.obtenir_joueur_par_id(pid) for pid in joueurs_ids]
+        if len(joueurs_ids) % 2 != 0:
+            raise ValueError("Le nombre de joueurs doit être pair pour l'appariement.")
 
-        # Filtrer les IDs invalides (juste au cas où)
-        joueurs = [j for j in joueurs if j is not None]
+        # 1️⃣ Récupérer les objets Joueur à partir de leurs IDs
+        joueurs_objets = [self.stockage.obtenir_joueur_par_id(j_id) for j_id in joueurs_ids]
+        joueurs_objets = [j for j in joueurs_objets if j is not None]
 
-        # 2. Trier les joueurs selon les règles
-        if tour_actuel == 1:
-            # R1 : Trier par CLASSEMENT
-            joueurs_tries = sorted(joueurs, key=lambda j: j.classement, reverse=True)
+        # 2️⃣ Trier les joueurs selon le tour
+        if tour_actuel_num == 1:
+            # Tour 1 : classement croissant (1 = meilleur)
+            joueurs_tries = sorted(joueurs_objets, key=lambda j: j.classement)
         else:
-            # R2+ : Trier par POINTS, puis par CLASSEMENT
-            def critere_tri(joueur):
-                return (-joueur.points_totaux, -joueur.classement)  # Décroissant
+            # Tours suivants : points totaux décroissants, puis classement croissant
+            joueurs_tries = sorted(
+                joueurs_objets,
+                key=lambda j: (j.points_totaux, -j.classement),
+                reverse=True
+            )
 
-            joueurs_tries = sorted(joueurs, key=critere_tri)
+        matchs: List[MatchModel] = []
+        n = len(joueurs_tries)
+        moitie = n // 2
 
-        # 3. Procéder au jumelage
-        matchs = []
-        joueurs_disponibles = list(joueurs_tries)
+        # 3️⃣ Logique d'appariement
+        if tour_actuel_num == 1:
+            # Top Half vs Bottom Half
+            for i in range(moitie):
+                j1 = joueurs_tries[i]
+                j2 = joueurs_tries[i + moitie]
 
-        while joueurs_disponibles:
-            j1 = joueurs_disponibles.pop(0)  # Toujours prendre le meilleur disponible
+                match = MatchModel(
+                    joueur_blanc_id=j1.joueur_id,
+                    joueur_noir_id=j2.joueur_id
+                )
+                matchs.append(match)
 
-            adversaire_trouve = False
-            for i, j2 in enumerate(joueurs_disponibles):
+        else:
+            # Tours suivants : simple appariement par ordre de tri (à améliorer plus tard)
+            for i in range(0, n, 2):
+                j1 = joueurs_tries[i]
+                j2 = joueurs_tries[i + 1]
 
-                if tour_actuel == 1:
-                    if (
-                        len(joueurs_tries) == 8
-                        and j2.joueur_id
-                        == joueurs_tries[4 + joueurs_tries.index(j1)].joueur_id
-                    ):
-                        pass
-
-                # Condition principale : Les joueurs ne doivent pas avoir déjà joué ensemble
-                if j2.joueur_id not in j1.adversaires_rencontres:
-                    # Jumelage trouvé !
-                    matchs.append(MatchModel(j1.joueur_id, j2.joueur_id))
-                    joueurs_disponibles.pop(i)
-                    # Retirer l'adversaire de la liste
-                    adversaire_trouve = True
-                    break
-
-            if not adversaire_trouve:
-                # Gestion du cas où le joueur n'a pas d'adversaire légitime (par exemple, s'il a joué contre tous)
-                # La spécification ne donne pas de règle pour la gestion des "flottants" (pairings floats)
-                # S'il ne reste qu'un seul joueur, il reçoit un "Bye" (non implémenté ici car N joueurs = 8)
-                print(f"ALERTE : pair difficile pour le joueur ID {j1.joueur_id}. Tentative de forcer l'appariement.")
-                # Pour cet exercice, nous allons forcer un appariement avec le prochain joueur disponible
-                # (méthode simple par défaut), même s'ils ont déjà joué, pour éviter le blocage.
-                # (Dans une implémentation réelle, on testerait P3, P4, etc.)
-                if joueurs_disponibles:
-                    j2 = joueurs_disponibles.pop(0)
-                    print(f"Jumelage forcé : J{j1.joueur_id} vs J{j2.joueur_id}.")
-                    matchs.append(MatchModel(j1.joueur_id, j2.joueur_id))
-                else:
-                    # Ne devrait pas arriver avec 8 joueurs.
-                    print(f"Erreur : Impossible de trouver un adversaire pour J{j1.joueur_id}. Le joueur est ignoré.")
+                match = MatchModel(
+                    joueur_blanc_id=j1.joueur_id,
+                    joueur_noir_id=j2.joueur_id
+                )
+                matchs.append(match)
 
         return matchs
