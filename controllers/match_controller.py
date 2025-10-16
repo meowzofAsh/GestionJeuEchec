@@ -1,11 +1,10 @@
 from datetime import datetime
 from models.tournois_model import TournoiModel
 
-# Ceci est un module de référence et devra être dans controllers/match_controller.py
-class MatchController:
 
-    
+class MatchController:
     """Gère la saisie des résultats pour un tour."""
+
     def __init__(self, stockage_service):
         self.stockage = stockage_service
 
@@ -23,20 +22,21 @@ class MatchController:
             j1 = self.stockage.obtenir_joueur_par_id(match.joueur_blanc_id)
             j2 = self.stockage.obtenir_joueur_par_id(match.joueur_noir_id)
 
-            # (Implémentation de la vue match_view.py pour la saisie)
-            resultat_str = input(f"Résultat pour {j1.prenom} vs {j2.prenom} (1-0, 0-1, 0.5-0.5) : ").strip()
+            # Saisie via input
+            resultat_str = input(
+                f"Résultat pour {j1.prenom} vs {j2.prenom} (1-0, 0-1, 0.5-0.5) : "
+            ).strip()
 
             score_b, score_n = 0.0, 0.0
-            if resultat_str == '1-0': score_b, score_n = 1.0, 0.0
-
-            elif resultat_str == '0-1': score_b, score_n = 0.0, 1.0
-
-            elif resultat_str in ('0.5-0.5', '1/2-1/2'): score_b, score_n = 0.5, 0.5
-
+            if resultat_str == "1-0":
+                score_b, score_n = 1.0, 0.0
+            elif resultat_str == "0-1":
+                score_b, score_n = 0.0, 1.0
+            elif resultat_str in ("0.5-0.5", "1/2-1/2"):
+                score_b, score_n = 0.5, 0.5
             else:
                 print("Résultat non reconnu. Match ignoré pour l'instant.")
                 continue
-                 
 
             # Mise à jour des modèles
             match.score_blanc = score_b
@@ -50,5 +50,6 @@ class MatchController:
         # Clôturer le tour
         tour_en_cours.date_heure_fin = datetime.now()
         print(f"\n--- Le tour '{tour_en_cours.nom}' est CLÔTURÉ et les points ont été mis à jour.")
+
         if tournoi.statut == "Terminé":
             print("\n!!! Le tournoi est TERMINÉ !!!")
