@@ -53,13 +53,12 @@ class StockageService:
         """Charge l'état complet du programme."""
         self.charger_joueurs()
         self.charger_tournois()
-        # Réouvrir la base pour s'assurer que toutes les données sont lues avant toute opération
-        self.db = TinyDB(self.db_path)
+        # TinyDB gère automatiquement la lecture, pas besoin de réouvrir
 
     # --- Sauvegarde et Sérialisation ---
 
     def _attribuer_ids(self):
-        """Attribue les IDs aux joueurs et tournois si nécessaire."""
+        """Attribue les IDs aux joueurs et tournois si nécessaire (au moment de la sauvegarde)."""
         for joueur in self.joueurs_en_memoire:
             if joueur.joueur_id is None:
                 self.max_joueur_id += 1
@@ -86,10 +85,24 @@ class StockageService:
 
     def sauvegarder_donnees(self):
         """Sauvegarde l'état complet du programme."""
-        self._attribuer_ids()  # 1. Attribuer les IDs
+        self._attribuer_ids()
         self.sauvegarder_joueurs()
         self.sauvegarder_tournois()
-        self.db.close()  # 2. Force l'écriture sur disque
+        self.db.close()
+
+    # --- Utilitaires d'attribution d'ID ---
+
+    def attribuer_id_joueur(self, joueur: JoueurModel):
+        """Attribue le prochain ID séquentiel disponible à un joueur."""
+        if joueur.joueur_id is None:
+            self.max_joueur_id += 1
+            joueur.joueur_id = self.max_joueur_id
+
+    def attribuer_id_tournoi(self, tournoi: TournoiModel):
+        """Attribue le prochain ID séquentiel disponible à un tournoi."""
+        if tournoi.tournoi_id is None:
+            self.max_tournoi_id += 1
+            tournoi.tournoi_id = self.max_tournoi_id
 
     # --- Utilitaires de Recherche ---
 
